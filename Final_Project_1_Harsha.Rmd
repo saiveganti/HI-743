@@ -1,0 +1,132 @@
+---
+title: "Final_Project_1_Harsha"
+author: "Harsha"
+date: "2025-05-09"
+output: html_document
+---
+
+```{r}
+# Load the dataset
+data <- read.csv("diabetes_prediction_dataset.csv")
+
+# View the structure and summary
+str(data)
+summary(data)
+```
+
+**Preprocess the Data**
+
+```{r}
+# Check for missing values
+colSums(is.na(data))
+
+# Convert target to factor if not already
+data$diabetes <- as.factor(data$diabetes)
+
+# Convert character predictors to factors
+data <- data %>%
+  mutate_if(is.character, as.factor)
+```
+
+**Train-Test Split**
+
+```{r}
+set.seed(123)
+trainIndex <- createDataPartition(data$diabetes, p = 0.8, list = FALSE)
+trainData <- data[trainIndex, ]
+testData <- data[-trainIndex, ]
+
+```
+
+
+**Model Training and Evaluation**
+
+## Logistic Regression
+
+```{r}
+library(tidyverse)
+
+model_log <- glm(diabetes ~ ., data = trainData, family = "binomial")
+pred_log <- predict(model_log, testData, type = "response")
+pred_log_class <- ifelse(pred_log > 0.5, "1", "0") %>% as.factor()
+
+confusionMatrix(pred_log_class, testData$diabetes)
+
+```
+
+## Decision Tree
+
+```{r}
+library(rpart)
+model_tree <- rpart(diabetes ~ ., data = trainData)
+pred_tree <- predict(model_tree, testData, type = "class")
+
+confusionMatrix(pred_tree, testData$diabetes)
+```
+
+## Random Forest
+
+```{r}
+model_rf <- randomForest(diabetes ~ ., data = trainData)
+pred_rf <- predict(model_rf, testData)
+
+confusionMatrix(pred_rf, testData$diabetes)
+```
+
+**Target Variable Distribution**
+```{r}
+ggplot(data, aes(x = diabetes)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Diabetes Distribution", x = "Diabetes", y = "Count")
+
+```
+
+**Feature Correlation Plot (for numeric variables)**
+
+```{r}
+library(corrplot)
+
+# Select numeric columns only
+numeric_data <- select_if(data, is.numeric)
+cor_matrix <- cor(numeric_data)
+
+corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.8)
+
+```
+
+**Boxplot: BMI vs Diabetes**
+
+```{r}
+ggplot(data, aes(x = diabetes, y = bmi, fill = diabetes)) +
+  geom_boxplot() +
+  labs(title = "BMI Distribution by Diabetes Status", y = "BMI", x = "Diabetes")
+
+```
+
+**Confusion Matrix Heatmap**
+
+```{r}
+conf_mat <- confusionMatrix(pred_rf, testData$diabetes)
+
+# Create heatmap from confusion matrix
+conf_df <- as.data.frame(conf_mat$table)
+ggplot(conf_df, aes(Prediction, Reference)) +
+  geom_tile(aes(fill = Freq)) +
+  geom_text(aes(label = Freq), vjust = 1) +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(title = "Confusion Matrix Heatmap")
+
+```
+
+**ROC Curve (Optional but Good for Classification Models)**
+
+```{r}
+library(pROC)
+
+# For logistic regression
+roc_log <- roc(testData$diabetes, pred_log)
+plot(roc_log, col = "blue", main = "ROC Curve - Logistic Regression")
+auc(roc_log)
+
+```
+
